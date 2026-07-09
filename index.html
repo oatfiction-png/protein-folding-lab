@@ -244,7 +244,7 @@
     <div class="kicker">Part 3 · The logic</div>
     <h2>Sequence decides everything downstream</h2>
     <p class="lead">The whole lab in one cause-and-effect chain. Click any step — changing the sequence changes every level after it, which is exactly why a single mutation can cause disease.</p>
-    <div class="chain" id="chain" style="margin-top:20px"></div>
+    <div class="chain" id="chainrow" style="margin-top:20px"></div>
     <div class="card" id="chaindetail" style="margin-top:16px"></div>
   </div>
 </section>
@@ -284,7 +284,8 @@
   <div class="wrap">
     <div class="kicker">Part 5 · The clinic</div>
     <h2>When folding goes wrong: 7 clinical cases</h2>
-    <p class="lead">Each disease below is one broken link in the sequence → structure → function chain. Select a case to see the exact mutation, the bond or property it wrecks, and what shows up in your patient.</p>
+    <p class="lead">Each disease below is one broken link in the sequence → structure → function chain. Select a case to see the exact mutation, the bond or property it wrecks, what shows up in your patient, and the protein's <b>UniProt accession</b> plus whether <b>AlphaFold DB</b> has a ready-made model — so you can look each one up yourself, just like the von Willebrand factor worked example.</p>
+    <div class="note" style="margin-top:14px">🔎 <b>One is deliberately missing from AlphaFold DB:</b> the pig ryanodine receptor (RYR1) is 5,035 residues — beyond the database's ~2,700-residue cap — so there is no ready-made model. That is the same lesson as VWF: for very large proteins you fold a short window around the mutation on the AlphaFold Server instead.</div>
 
     <div class="casebtns" id="casebtns" style="margin-top:18px"></div>
     <div class="card" id="casepanel"></div>
@@ -329,7 +330,7 @@
     <div class="kicker">Part 7 · Check yourself</div>
     <h2>Quick self-test</h2>
     <p class="lead">Six questions drawn straight from the lab's pre-lab and discussion sets. Click an answer.</p>
-    <div id="quiz" style="margin-top:20px"></div>
+    <div id="quizbox" style="margin-top:20px"></div>
     <div class="card" id="score" style="margin-top:10px;display:none"></div>
   </div>
 </section>
@@ -487,6 +488,18 @@ const cases = [
     lesson:"Structure, not just sequence, is the disease. Same primary structure, catastrophically different fold — the ultimate proof that shape = function."}
 ];
 
+// UniProt accession + AlphaFold DB availability for each case (verified against UniProt & the AlphaFold DB API)
+const dbinfo = {
+  sickle:{acc:"P68871",org:"Homo sapiens (comparative reference)",len:147,afdb:true},
+  pss:{acc:"P16960",org:"Sus scrofa (pig)",len:5035,afdb:false,
+    note:"Too large for AlphaFold DB (the database omits proteins over ~2,700 residues). There is no ready-made model — fold a short window (~180 aa) around residue 615 on the AlphaFold Server instead, exactly like the von Willebrand factor example."},
+  pssm:{acc:"B2L109",org:"Equus caballus (horse)",len:737,afdb:true},
+  mdr1:{acc:"O46605",org:"Canis lupus familiaris (dog)",len:1280,afdb:true},
+  pfk:{acc:"P52784",org:"Canis lupus familiaris (dog)",len:782,afdb:true},
+  pdp1:{acc:"A0A8I3NK25",org:"Canis lupus familiaris (dog)",len:537,afdb:true},
+  prion:{acc:"P23907",org:"Ovis aries (sheep)",len:256,afdb:true}
+};
+
 const quiz = [
   {q:"Which single amino acid forms covalent disulfide bonds?",
    opts:["Cysteine (C)","Serine (S)","Glycine (G)","Lysine (K)"],a:0,
@@ -558,7 +571,7 @@ function drawBond(i){
 drawBond(0);
 
 /* ---------------- RENDER: CHAIN ---------------- */
-const cw=document.getElementById('chain'), cd=document.getElementById('chaindetail');
+const cw=document.getElementById('chainrow'), cd=document.getElementById('chaindetail');
 chain.forEach((S,i)=>{
   const step=document.createElement('div');
   step.className='chainstep'+(i===0?' active':'');
@@ -656,6 +669,17 @@ function drawCase(i){
   const swap = C.pos==='—'
     ? `<div class="swap">${resBox(C.wt,'many proteins')}<div class="swaparrow">→</div>${resBox(C.mut,'convergent outcome')}</div>`
     : `<div class="swap">${resBox(C.wt)}<div class="swaparrow">→</div>${resBox(C.mut)}${posBox}</div>`;
+  const db=dbinfo[C.id];
+  const dbStrip = db ? `<div class="infobox" style="grid-column:1/-1;border-color:${db.afdb?'var(--green)':'var(--orange)'}">
+      <h4>Look it up yourself — UniProt &amp; AlphaFold</h4>
+      <div style="display:flex;gap:10px 22px;flex-wrap:wrap;font-size:14px;align-items:center">
+        <div>UniProt: <a href="https://www.uniprot.org/uniprotkb/${db.acc}/entry" target="_blank" rel="noopener"><b>${db.acc}</b></a> &nbsp;<span class="muted">${db.org} · ${db.len} aa</span></div>
+        <div>AlphaFold DB: ${db.afdb
+          ? `<a href="https://alphafold.ebi.ac.uk/entry/${db.acc}" target="_blank" rel="noopener"><b style="color:var(--green)">✔ ready-made model</b></a>`
+          : `<b style="color:var(--orange)">✘ not in AlphaFold DB</b>`}</div>
+      </div>
+      ${db.note?`<p class="muted" style="font-size:13px;margin:8px 0 0">${db.note}</p>`:''}
+    </div>` : '';
   cpanel.innerHTML=`
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
       <h3 style="margin:0">${C.sp} ${C.name}</h3>
@@ -670,6 +694,7 @@ function drawCase(i){
         <h4>Bond / property affected</h4><p style="margin:0;font-size:14.5px">${C.bond}</p></div>
       <div class="infobox"><h4>In your patient</h4><p style="margin:0;font-size:14.5px">${C.clinical}</p></div>
       <div class="infobox" style="border-color:var(--cyan)"><h4>The lesson</h4><p style="margin:0;font-size:14.5px">${C.lesson}</p></div>
+      ${dbStrip}
     </div>`;
 }
 drawCase(0);
@@ -693,7 +718,7 @@ for(let i=0;i<N;i++){
 }
 
 /* ---------------- QUIZ ---------------- */
-const qw=document.getElementById('quiz'); let answered=0, correct=0;
+const qw=document.getElementById('quizbox'); let answered=0, correct=0;
 quiz.forEach((Q,qi)=>{
   const box=document.createElement('div');box.className='q card';
   box.innerHTML=`<p>${qi+1}. ${Q.q}</p>`;
@@ -729,7 +754,8 @@ window.addEventListener('beforeprint',()=>{
       <div style="margin-top:6px;font-size:14px"><b>Change:</b> ${C.consequence}</div>
       <div style="font-size:14px"><b>Structure:</b> ${C.struct} <b>Bond/property:</b> ${C.bond}</div>
       <div style="font-size:14px"><b>In the patient:</b> ${C.clinical}</div>
-      <div style="font-size:14px"><b>Lesson:</b> ${C.lesson}</div></div>`;
+      <div style="font-size:14px"><b>Lesson:</b> ${C.lesson}</div>
+      ${dbinfo[C.id]?`<div style="font-size:14px"><b>UniProt:</b> ${dbinfo[C.id].acc} (${dbinfo[C.id].org}, ${dbinfo[C.id].len} aa) · <b>AlphaFold DB:</b> ${dbinfo[C.id].afdb?'model available':'NOT in AFDB — fold a window on AlphaFold Server'}</div>`:''}</div>`;
   }).join('');
   document.getElementById('casepanel').style.display='none';
 });

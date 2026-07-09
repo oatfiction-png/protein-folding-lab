@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Sequence to Fold — Interactive Protein Folding Lab</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#121a33; --panel:#161f3d; --panel2:#1d2950;
+    --ink:#eaf0ff; --muted:#9fb0d9; --line:#2a3766;
+    --blue:#4f8cff; --cyan:#38d1c9; --green:#3ddc84; --yellow:#ffd34d;
+    --orange:#ff9f45; --red:#ff5d6c; --violet:#b98cff; --pink:#ff7ab6;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 700px at 80% -10%,#1a2550 0%,var(--bg) 55%),var(--bg);
+    color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--cyan)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header.hero{padding:64px 0 40px;text-align:center;position:relative;overflow:hidden}
+  .eyebrow{display:inline-block;font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--cyan);border:1px solid var(--line);border-radius:999px;padding:6px 14px;background:rgba(56,209,201,.06)}
+  h1{font-size:clamp(30px,5vw,52px);line-height:1.05;margin:18px 0 10px;font-weight:800;
+    background:linear-gradient(90deg,#eaf0ff,#9fc0ff 60%,#38d1c9);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--muted);max-width:680px;margin:0 auto;font-size:18px}
+  .tagpills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:22px}
+  .tagpills span{font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    padding:6px 12px;border-radius:999px}
+  nav.toc{position:sticky;top:0;z-index:50;background:rgba(11,16,32,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);margin-top:26px}
+  nav.toc .wrap{display:flex;gap:6px;overflow-x:auto;padding:10px 20px}
+  nav.toc a{white-space:nowrap;color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;
+    padding:8px 12px;border-radius:8px}
+  nav.toc a:hover{color:var(--ink);background:var(--panel)}
+  section{padding:52px 0;border-bottom:1px solid rgba(42,55,102,.5)}
+  .kicker{color:var(--cyan);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase}
+  h2{font-size:clamp(24px,3.4vw,34px);margin:8px 0 6px;font-weight:800}
+  h3{font-size:20px;margin:0 0 6px}
+  p.lead{color:var(--muted);font-size:17px;max-width:760px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.03em}
+
+  /* Structure levels */
+  .levels{display:grid;grid-template-columns:220px 1fr;gap:18px}
+  @media(max-width:820px){.levels{grid-template-columns:1fr}}
+  .levelbtns{display:flex;flex-direction:column;gap:10px}
+  .levelbtn{text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:14px 14px;border-radius:12px;cursor:pointer;transition:.15s;display:flex;gap:12px;align-items:center}
+  .levelbtn:hover{border-color:var(--blue)}
+  .levelbtn.active{background:var(--panel2);border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+  .levelbtn b{display:block;font-size:15px}
+  .levelbtn small{color:var(--muted)}
+  .lvlnum{width:34px;height:34px;flex:0 0 34px;border-radius:9px;display:grid;place-items:center;font-weight:800;
+    background:linear-gradient(135deg,var(--blue),var(--violet));color:#08122b}
+  .levelpanel{min-height:260px}
+  .levelpanel .art{font-size:44px;letter-spacing:6px}
+
+  /* Bonds explorer */
+  .bondgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  @media(max-width:820px){.bondgrid{grid-template-columns:repeat(2,1fr)}}
+  .bondchip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:14px 12px;text-align:center;
+    background:var(--panel);transition:.15s;position:relative}
+  .bondchip:hover{transform:translateY(-2px)}
+  .bondchip.active{border-color:var(--accent,#4f8cff);box-shadow:0 0 0 1px var(--accent,#4f8cff),0 8px 24px rgba(0,0,0,.35)}
+  .bonddot{width:14px;height:14px;border-radius:50%;margin:0 auto 8px}
+  .bondchip b{font-size:14px;display:block}
+  .bondchip small{color:var(--muted);font-size:11.5px}
+  .bonddetail{margin-top:16px;border-left:4px solid var(--accent,#4f8cff)}
+  .strengthbar{height:10px;border-radius:999px;background:var(--panel2);overflow:hidden;margin-top:6px}
+  .strengthbar>div{height:100%;border-radius:999px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:14.5px;margin-top:10px}
+  .kv div:nth-child(odd){color:var(--muted)}
+
+  /* chain */
+  .chain{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+  .chainstep{flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px;cursor:pointer;transition:.15s}
+  .chainstep:hover{border-color:var(--cyan)}
+  .chainstep.active{border-color:var(--cyan);background:var(--panel2)}
+  .chainstep .tag{font-size:11px;color:var(--cyan);font-weight:700}
+  .arrow{align-self:center;color:var(--muted);font-size:22px}
+  @media(max-width:820px){.arrow{transform:rotate(90deg)}}
+
+  /* mutation simulator */
+  .aagrid{display:flex;flex-wrap:wrap;gap:6px}
+  .aa{width:38px;height:38px;border-radius:8px;display:grid;place-items:center;font-weight:800;cursor:pointer;
+    border:2px solid transparent;font-size:15px;user-select:none;transition:.12s}
+  .aa:hover{transform:scale(1.08)}
+  .aa.sel{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+  .simwrap{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.simwrap{grid-template-columns:1fr}}
+  .readout{font-size:14px}
+  .readout .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .delta-up{color:var(--green);font-weight:700}
+  .delta-down{color:var(--red);font-weight:700}
+  .flag{background:rgba(255,93,108,.12);border:1px solid rgba(255,93,108,.5);color:#ffc4ca;
+    padding:10px 12px;border-radius:10px;margin-top:10px;font-size:13.5px}
+  .flag.ok{background:rgba(61,220,132,.1);border-color:rgba(61,220,132,.5);color:#bff4d5}
+
+  /* disease cases */
+  .casebtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .casebtn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:9px 13px;border-radius:10px;font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .casebtn:hover{border-color:var(--blue)}
+  .casebtn.active{background:var(--panel2);border-color:var(--blue)}
+  .casebtn .sp{font-size:16px}
+  .swap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;margin:8px 0 14px}
+  .residue{min-width:120px;text-align:center;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel)}
+  .residue .code{font-size:34px;font-weight:800;line-height:1}
+  .residue .nm{font-size:12.5px;color:var(--muted)}
+  .residue .props{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  .swaparrow{font-size:30px;color:var(--yellow)}
+  .casegrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.casegrid{grid-template-columns:1fr}}
+  .infobox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .infobox h4{margin:0 0 6px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan)}
+  .badge{font-size:11.5px;padding:3px 10px;border-radius:999px;font-weight:700}
+
+  /* confidence demo */
+  .plddt{display:flex;gap:3px;flex-wrap:wrap;margin-top:10px}
+  .res{width:16px;height:26px;border-radius:3px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;gap:6px;align-items:center}
+  .swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
+
+  /* quiz */
+  .q{margin-bottom:18px}
+  .q p{font-weight:600;margin:0 0 8px}
+  .opt{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:11px 14px;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.12s;font-size:14.5px}
+  .opt:hover{border-color:var(--blue)}
+  .opt.correct{border-color:var(--green);background:rgba(61,220,132,.12)}
+  .opt.wrong{border-color:var(--red);background:rgba(255,93,108,.12)}
+  .explain{font-size:13.5px;color:var(--muted);margin:4px 0 0;padding-left:2px;display:none}
+  .explain.show{display:block}
+
+  footer{padding:40px 0 70px;color:var(--muted);font-size:13.5px}
+  .note{background:rgba(255,211,77,.08);border:1px solid rgba(255,211,77,.4);border-radius:12px;padding:14px 16px;
+    font-size:13.5px;color:#ffe9ad}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .lnk{display:inline-flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);
+    padding:9px 14px;border-radius:10px;text-decoration:none;color:var(--ink);font-size:13.5px;font-weight:600}
+  .lnk:hover{border-color:var(--cyan)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:13px}
+  .hl{color:var(--yellow);font-weight:700}
+  .printbar{position:fixed;right:18px;bottom:18px;z-index:100}
+  .printbar button{background:var(--cyan);color:#062a2a;border:none;font-weight:700;font-size:14px;
+    padding:12px 18px;border-radius:999px;cursor:pointer;box-shadow:var(--shadow)}
+  .printbar button:hover{filter:brightness(1.08)}
+
+  /* ---------- PRINT-FRIENDLY ---------- */
+  @media print{
+    :root{--ink:#111;--muted:#333;--line:#bbb}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{background:#fff;color:#111}
+    html{scroll-behavior:auto}
+    nav.toc,.printbar,.btnrow,#resetSim{display:none !important}
+    header.hero{padding:12px 0 8px}
+    h1{color:#0a2a6b !important;-webkit-text-fill-color:#0a2a6b}
+    .sub,.tagpills{color:#333}
+    section{padding:16px 0;border-bottom:1px solid #ccc;break-inside:avoid}
+    .card,.infobox,.bondchip,.levelbtn,.chainstep,.residue,.q{background:#fff !important;
+      border:1px solid #bbb !important;box-shadow:none !important}
+    .levels{grid-template-columns:1fr}
+    .levelbtns{flex-direction:row;flex-wrap:wrap}
+    /* expand all interactive panels so nothing is hidden on paper */
+    .casegrid{grid-template-columns:1fr 1fr}
+    .note{background:#f5f5f5 !important;color:#222 !important;border:1px solid #ccc !important}
+    a{color:#0a4a9b}
+    .hero,.card{page-break-inside:avoid}
+    #quiz .opt{border:1px solid #bbb !important}
+    .explain{display:block !important;color:#333}
+    footer{padding:16px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Veterinary Biochemistry · AlphaFold Lab Companion</span>
+    <h1>From Sequence to Fold</h1>
+    <p class="sub">The bonds that fold a protein — and what happens to your patient when a single amino acid changes.</p>
+    <div class="tagpills">
+      <span>🧬 4 levels of structure</span>
+      <span>🔗 5 folding bonds</span>
+      <span>🐴 7 clinical cases</span>
+      <span>🧪 Mutation simulator</span>
+    </div>
+  </div>
+</header>
+
+<div class="printbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#levels">Structure levels</a>
+    <a href="#bonds">The 5 bonds</a>
+    <a href="#chain">Sequence → function</a>
+    <a href="#sim">Mutation simulator</a>
+    <a href="#clinical">Clinical cases</a>
+    <a href="#confidence">Reading AlphaFold</a>
+    <a href="#quiz">Check yourself</a>
+  </div>
+</nav>
+
+<!-- =================== LEVELS =================== -->
+<section id="levels">
+  <div class="wrap">
+    <div class="kicker">Part 1 · The scaffold</div>
+    <h2>Four levels of protein structure</h2>
+    <p class="lead">Every protein is built up in four stages. Click each level to see what it is, a veterinary example, and the bond that holds it together.</p>
+    <div class="levels" style="margin-top:22px">
+      <div class="levelbtns" id="levelbtns"></div>
+      <div class="card levelpanel" id="levelpanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== BONDS =================== -->
+<section id="bonds">
+  <div class="wrap">
+    <div class="kicker">Part 2 · The chemistry</div>
+    <h2>The five bonds that fold a protein</h2>
+    <p class="lead">Folding is a tug-of-war between many <b>weak</b> interactions and a few <b>strong</b> covalent ones. Click a bond to learn where it acts — and note whether it lives on the <b>backbone</b> or the <b>R-side-chain</b>.</p>
+    <div class="bondgrid" id="bondgrid" style="margin-top:20px"></div>
+    <div class="card bonddetail" id="bonddetail" style="margin-top:16px"></div>
+    <div class="note" style="margin-top:16px">💡 <b>Key idea:</b> backbone bonds (peptide + the H-bonds of helices/sheets) build the local 2° scaffold. R-side-chain bonds (hydrophobic, ionic, H-bond, disulfide) fold that scaffold into the 3-D shape and lock chains together. Every side-chain bond depends on <i>which amino acid the sequence supplied</i> — no cysteine in the sequence, no disulfide possible.</div>
+  </div>
+</section>
+
+<!-- =================== CHAIN =================== -->
+<section id="chain">
+  <div class="wrap">
+    <div class="kicker">Part 3 · The logic</div>
+    <h2>Sequence decides everything downstream</h2>
+    <p class="lead">The whole lab in one cause-and-effect chain. Click any step — changing the sequence changes every level after it, which is exactly why a single mutation can cause disease.</p>
+    <div class="chain" id="chain" style="margin-top:20px"></div>
+    <div class="card" id="chaindetail" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<!-- =================== SIMULATOR =================== -->
+<section id="sim">
+  <div class="wrap">
+    <div class="kicker">Part 4 · Try it</div>
+    <h2>Mutation simulator</h2>
+    <p class="lead">Pick a position in this short peptide, swap in a new amino acid, and watch the net charge, hydrophobicity (GRAVY) and disulfide count change — the same read-outs as the <code>Protein_Folding_Simulator.xlsx</code> Analyzer sheet.</p>
+
+    <div class="card" style="margin-top:20px">
+      <div class="muted" style="font-size:13px;margin-bottom:8px">Click a residue in the peptide to select a position, then click an amino acid below to mutate it.</div>
+      <div class="aagrid" id="peptide" style="margin-bottom:16px"></div>
+
+      <div class="muted" style="font-size:13px;margin-bottom:6px">Amino acid palette (colored by chemistry):</div>
+      <div class="aagrid" id="palette"></div>
+
+      <div class="simwrap" style="margin-top:18px">
+        <div class="infobox">
+          <h4>Live read-out</h4>
+          <div class="readout" id="readout"></div>
+        </div>
+        <div class="infobox">
+          <h4>What the change means</h4>
+          <div id="siminterp" class="muted" style="font-size:14px">Make a mutation to see the interpretation.</div>
+          <div id="simflag"></div>
+        </div>
+      </div>
+      <div class="btnrow"><button class="lnk" id="resetSim">↺ Reset peptide</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== CLINICAL =================== -->
+<section id="clinical">
+  <div class="wrap">
+    <div class="kicker">Part 5 · The clinic</div>
+    <h2>When folding goes wrong: 7 clinical cases</h2>
+    <p class="lead">Each disease below is one broken link in the sequence → structure → function chain. Select a case to see the exact mutation, the bond or property it wrecks, and what shows up in your patient.</p>
+
+    <div class="casebtns" id="casebtns" style="margin-top:18px"></div>
+    <div class="card" id="casepanel"></div>
+
+    <div class="note" style="margin-top:16px">🩺 <b>Connecting thread — rhabdomyolysis:</b> several of these muscle diseases (porcine stress syndrome, PSSM1, PFK deficiency) converge on the same endpoint — <b>rhabdomyolysis</b>: muscle fibres over-contract or starve for energy, their membranes rupture, and myoglobin + creatine kinase spill into the blood (dark urine, high CK, possible kidney injury). A leaky Ca²⁺ channel, an over-active enzyme, and a missing glycolytic enzyme are chemically unrelated, yet the patient presents the same way. The chemistry diverges; the clinical picture converges.</div>
+  </div>
+</section>
+
+<!-- =================== CONFIDENCE =================== -->
+<section id="confidence">
+  <div class="wrap">
+    <div class="kicker">Part 6 · Read before you trust</div>
+    <h2>Reading an AlphaFold prediction</h2>
+    <p class="lead">AlphaFold gives a <b>prediction</b>, not experimental truth. Before trusting any part of a model, read its confidence. Hover the residues below to see a simulated per-residue confidence (pLDDT).</p>
+    <div class="card" style="margin-top:18px">
+      <h3>pLDDT — per-residue confidence (0–100)</h3>
+      <div class="muted" style="font-size:14px">A model of one protein: a well-ordered core flanked by two floppy, disordered tails.</div>
+      <div class="plddt" id="plddt"></div>
+      <div class="legend">
+        <span><i class="swatch" style="background:#0053d6"></i> ≥90 very high</span>
+        <span><i class="swatch" style="background:#65c7f7"></i> 70–90 confident</span>
+        <span><i class="swatch" style="background:#ffdb13"></i> 50–70 low</span>
+        <span><i class="swatch" style="background:#ff7d45"></i> &lt;50 very low / disordered</span>
+      </div>
+      <div id="plddtread" class="muted" style="font-size:14px;margin-top:12px">Hover a residue…</div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h3>pLDDT</h3><p class="muted" style="font-size:14.5px;margin:0">Colours each residue by how sure AlphaFold is of its <b>local</b> position. Orange regions are often genuinely floppy/disordered — not necessarily errors.</p></div>
+      <div class="card"><h3>PAE</h3><p class="muted" style="font-size:14.5px;margin:0">Predicted Aligned Error — a 2-D plot of confidence in the <b>relative</b> position of every pair of residues. Low (green) square blocks = rigid, well-placed domains.</p></div>
+    </div>
+    <div class="btnrow">
+      <a class="lnk" href="https://alphafold.ebi.ac.uk" target="_blank" rel="noopener">↗ AlphaFold DB</a>
+      <a class="lnk" href="https://www.uniprot.org" target="_blank" rel="noopener">↗ UniProt</a>
+      <a class="lnk" href="https://alphafoldserver.com" target="_blank" rel="noopener">↗ AlphaFold Server (AF3)</a>
+    </div>
+  </div>
+</section>
+
+<!-- =================== QUIZ =================== -->
+<section id="quiz">
+  <div class="wrap">
+    <div class="kicker">Part 7 · Check yourself</div>
+    <h2>Quick self-test</h2>
+    <p class="lead">Six questions drawn straight from the lab's pre-lab and discussion sets. Click an answer.</p>
+    <div id="quiz" style="margin-top:20px"></div>
+    <div class="card" id="score" style="margin-top:10px;display:none"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="note" style="margin-bottom:16px">⚠️ AlphaFold provides predictions for modelling and education only — they are <b>not validated for clinical or diagnostic use</b>. Confirm sequences and accession numbers on UniProt.</div>
+    Built as a companion to the AlphaFold Protein Structure Lab (Veterinary Biochemistry, undergraduate). Structure &amp; bond content follows the lab manual; disease facts verified against primary literature. Mutation figures: sickle cell HBB Glu6Val; porcine stress syndrome RYR1 Arg615Cys; equine PSSM1 GYS1 Arg309His; canine MDR1/ABCB1 ivermectin sensitivity (ABCB1-1Δ, 4-bp frameshift deletion); canine PFK deficiency PFKM Trp→Stop (c.2228G&gt;A); canine mitochondrial PDP1 deficiency Gln252Stop (c.754C&gt;T); prion PrP<sup>C</sup>→PrP<sup>Sc</sup> conformational conversion.
+  </div>
+</footer>
+
+<script>
+/* ---------------- DATA ---------------- */
+const levels = [
+  {n:"1°",name:"Primary",color:"var(--blue)",art:"● ● ● ● ● ● ●",
+    what:"The exact order of amino acids in the chain, written N-terminus to C-terminus — like beads on a string.",
+    ex:"The 51-residue sequence of bovine insulin.",
+    bond:"Peptide bonds (covalent) linking the backbone of each residue to the next.",
+    bondColor:"var(--blue)"},
+  {n:"2°",name:"Secondary",color:"var(--cyan)",art:"〰 〰 ▤▤▤",
+    what:"Local, repeating folding patterns of the backbone: the α-helix (coiled ribbon) and the β-sheet (flat arrows), plus turns.",
+    ex:"Serum albumin is almost all α-helix; β-lactoglobulin is mostly β-sheet.",
+    bond:"Hydrogen bonds between backbone C=O and N–H groups. Note: backbone, not R-groups.",
+    bondColor:"var(--green)"},
+  {n:"3°",name:"Tertiary",color:"var(--violet)",art:"🧬",
+    what:"The full 3-D shape of one complete chain, with helices and sheets packed together around a buried core.",
+    ex:"The compact, heart-shaped fold of one albumin molecule.",
+    bond:"R-group interactions: hydrophobic packing (the main driver), ionic/salt bridges, H-bonds, and disulfides.",
+    bondColor:"var(--orange)"},
+  {n:"4°",name:"Quaternary",color:"var(--pink)",art:"🧬🧬🧬",
+    what:"How two or more folded chains assemble into one functional unit.",
+    ex:"Collagen's triple helix; haemoglobin's 2α+2β tetramer; the insulin hexamer.",
+    bond:"The same R-group interactions, now acting between separate chains.",
+    bondColor:"var(--pink)"}
+];
+
+const bonds = [
+  {name:"Peptide",sub:"covalent backbone",color:"#4f8cff",strength:98,rev:"No — needs enzymes/acid",
+    between:"Backbone: carboxyl of one residue + amino of the next.",
+    where:"Defines the primary (1°) structure of every protein.",
+    loc:"Backbone", type:"Very strong (covalent)"},
+  {name:"Disulfide",sub:"covalent S–S",color:"#ffd34d",strength:82,rev:"Only by reduction",
+    between:"Two cysteine (C) R-groups, forming an S–S bridge.",
+    where:"Insulin's 3 disulfides; albumin's ~17; keeps secreted proteins rigid.",
+    loc:"R-side-chain", type:"Strong (covalent)"},
+  {name:"Ionic / salt bridge",sub:"electrostatic",color:"#ff9f45",strength:52,rev:"Yes — pH-sensitive",
+    between:"Opposite charges: D/E (–) attracting K/R/H (+).",
+    where:"Surface charges; pH-dependent stability and solubility.",
+    loc:"R-side-chain", type:"Moderate"},
+  {name:"Hydrogen",sub:"dipole",color:"#3ddc84",strength:30,rev:"Yes",
+    between:"Polar backbone or R-groups (–OH, –NH, C=O).",
+    where:"Builds every α-helix and β-sheet (secondary structure).",
+    loc:"Backbone (2°) & R-group", type:"Weak individually — many add up"},
+  {name:"Hydrophobic",sub:"the core driver",color:"#b98cff",strength:44,rev:"Yes",
+    between:"Nonpolar R-groups (A,V,L,I,M,F,W) hiding together away from water.",
+    where:"The main folding force; forms the buried tertiary (3°) core.",
+    loc:"R-side-chain", type:"Moderate (collective)"}
+];
+
+const chain = [
+  {tag:"1° Sequence",label:"Amino-acid order",color:"var(--blue)",
+    text:"Insulin's exact 51-residue sequence is set by DNA. This is the only information the cell needs — everything below is a consequence of it. Bond at this level: the covalent peptide bond."},
+  {tag:"2° H-bond pattern",label:"Helices & sheets",color:"var(--green)",
+    text:"Backbone C=O···H–N hydrogen bonds fold local stretches into α-helices and β-sheets. Insulin's chains are largely helical. Bond at this level: backbone hydrogen bonds."},
+  {tag:"3° R-group packing",label:"3-D fold",color:"var(--orange)",
+    text:"Side chains now pack the helices together: hydrophobic residues bury inward, charged ones face out, and cysteines form disulfides. Bonds: hydrophobic, ionic, H-bond, disulfide."},
+  {tag:"4° Assembly",label:"Chain teamwork",color:"var(--pink)",
+    text:"Insulin's A and B chains staple together via 3 disulfides; six insulins pack into a storage hexamer. Bonds: the same R-group interactions, acting between chains."},
+  {tag:"FUNCTION",label:"It works",color:"var(--cyan)",
+    text:"Only the correctly folded molecule can bind its receptor and lower blood glucose. Change the sequence and you change every level above — which is why a single mutation can cause disease."}
+];
+
+// amino acid properties: kd = Kyte-Doolittle hydropathy, charge at pH7
+const AA = {
+  A:{name:"Alanine",kd:1.8,charge:0,cls:"hydrophobic"},
+  R:{name:"Arginine",kd:-4.5,charge:1,cls:"positive"},
+  N:{name:"Asparagine",kd:-3.5,charge:0,cls:"polar"},
+  D:{name:"Aspartate",kd:-3.5,charge:-1,cls:"negative"},
+  C:{name:"Cysteine",kd:2.5,charge:0,cls:"special"},
+  E:{name:"Glutamate",kd:-3.5,charge:-1,cls:"negative"},
+  Q:{name:"Glutamine",kd:-3.5,charge:0,cls:"polar"},
+  G:{name:"Glycine",kd:-0.4,charge:0,cls:"special"},
+  H:{name:"Histidine",kd:-3.2,charge:1,cls:"positive"},
+  I:{name:"Isoleucine",kd:4.5,charge:0,cls:"hydrophobic"},
+  L:{name:"Leucine",kd:3.8,charge:0,cls:"hydrophobic"},
+  K:{name:"Lysine",kd:-3.9,charge:1,cls:"positive"},
+  M:{name:"Methionine",kd:1.9,charge:0,cls:"hydrophobic"},
+  F:{name:"Phenylalanine",kd:2.8,charge:0,cls:"hydrophobic"},
+  P:{name:"Proline",kd:-1.6,charge:0,cls:"special"},
+  S:{name:"Serine",kd:-0.8,charge:0,cls:"polar"},
+  T:{name:"Threonine",kd:-0.7,charge:0,cls:"polar"},
+  W:{name:"Tryptophan",kd:-0.9,charge:0,cls:"hydrophobic"},
+  Y:{name:"Tyrosine",kd:-1.3,charge:0,cls:"polar"},
+  V:{name:"Valine",kd:4.2,charge:0,cls:"hydrophobic"}
+};
+const clsColor={hydrophobic:"#b98cff",positive:"#4f8cff",negative:"#ff5d6c",polar:"#3ddc84",special:"#ffd34d"};
+const clsLabel={hydrophobic:"nonpolar",positive:"+ charge",negative:"– charge",polar:"polar",special:"special"};
+
+const cases = [
+  {id:"sickle",sp:"🩸",name:"Sickle cell anaemia",species:"Human / comparative",
+    gene:"HBB (β-globin)",wt:"E",mut:"V",pos:"6",
+    inherit:"Recessive · point mutation",
+    consequence:"A charged, water-loving glutamate on the protein surface becomes a greasy, water-hating valine. This creates a sticky hydrophobic patch that makes deoxygenated haemoglobin molecules stick end-to-end into stiff fibres.",
+    struct:"Fibres distort the red cell into a rigid sickle shape.",
+    clinical:"Sickled cells jam small vessels → pain crises, haemolysis, anaemia.",
+    bond:"Hydrophobic interaction (a new, unwanted one on the surface)",
+    lesson:"One surface swap from charged→hydrophobic is enough to make a soluble protein aggregate. This is the classic single-point-mutation disease."},
+  {id:"pss",sp:"🐖",name:"Porcine stress syndrome",species:"Pig",
+    gene:"RYR1 (ryanodine receptor)",wt:"R",mut:"C",pos:"615",
+    inherit:"Recessive · point mutation (c.1843C>T)",
+    consequence:"A positively charged arginine that helps gate the muscle calcium channel is replaced by cysteine, losing a salt-bridge partner. The channel now leaks Ca²⁺ from the sarcoplasmic reticulum.",
+    struct:"Altered gating of the RyR1 Ca²⁺ release channel.",
+    clinical:"Stress or anaesthesia → uncontrolled Ca²⁺ release → malignant hyperthermia: rigidity, hyperthermia, rhabdomyolysis, sudden death.",
+    bond:"Ionic / salt bridge (lost) — the new cysteine can also misbehave",
+    lesson:"Losing one charged residue can wreck a channel's gating. Same amino-acid logic as sickle cell, but the broken protein is a gate, not a carrier."},
+  {id:"pssm",sp:"🐴",name:"Equine PSSM1",species:"Horse (Quarter Horse, Draft, Warmblood)",
+    gene:"GYS1 (glycogen synthase)",wt:"R",mut:"H",pos:"309",
+    inherit:"Dominant · point mutation",
+    consequence:"Arginine→histidine leaves glycogen synthase 'stuck on': it stays highly active even without its normal activator and ignores the phosphorylation signals that should switch it off (gain of function).",
+    struct:"Constitutively active enzyme; massive glycogen + abnormal amylopectate build-up in muscle.",
+    clinical:"Exercise → intermittent exertional rhabdomyolysis ('tying-up'): stiffness, sweating, muscle damage.",
+    bond:"Ionic / salt bridge & regulatory contacts (altered → over-active)",
+    lesson:"A mutation doesn't only break function — here it removes an 'off switch', a gain-of-function. Note the dominant inheritance: one bad copy is enough."},
+  {id:"mdr1",sp:"🐕‍🦺",name:"MDR1 ivermectin sensitivity",species:"Dog (Collie, Australian Shepherd, ~12 herding breeds)",
+    gene:"ABCB1 / MDR1 (P-glycoprotein)",wt:"frame",mut:"✕",pos:"fs",mutLabel:"ABCB1-1Δ · 4-bp deletion → frameshift",
+    inherit:"Recessive · frameshift deletion (ABCB1-1Δ)",
+    consequence:"A 4-base-pair deletion knocks the reading frame out of register. From that point every codon is misread and a STOP appears within a few codons, so only a short, useless stub of P-glycoprotein (~10%) is made.",
+    struct:"No working P-glycoprotein — the drug-efflux pump that guards the blood–brain barrier is gone.",
+    clinical:"Drugs that P-gp normally pumps out of the brain (ivermectin and others) build up in the CNS → tremors, ataxia, blindness, coma. A routine deworming dose can poison the dog — hence 'white feet, don't treat'.",
+    bond:"None form — a frameshift truncates the protein before it can fold",
+    lesson:"A tiny DNA deletion — not even a whole codon — shifts the reading frame and wipes out the protein. Pure pharmacogenetics: the fold decides whether a normal drug dose is safe or lethal. (Compare PFK below: a point nonsense mutation reaches a similar dead end by a different route.)"},
+  {id:"pfk",sp:"🐕",name:"Canine PFK deficiency",species:"Dog (English Springer Spaniel, Cocker)",
+    gene:"PFKM (muscle phosphofructokinase)",wt:"W",mut:"✕",pos:"~740",
+    inherit:"Recessive · nonsense (Trp→Stop, c.2228G>A)",
+    consequence:"A late STOP codon (~40 residues before the end) lops off the C-terminus. Unlike GBED, a near-complete chain IS made — but the missing tail leaves it unstable, so the cell's quality control rapidly degrades it. Glycolysis loses its key rate-limiting enzyme.",
+    struct:"Truncated, unstable M-PFK is degraded → little functional enzyme in muscle and red blood cells.",
+    clinical:"A glycogen storage disease (type VII / Tarui): exercise intolerance in muscle PLUS haemolytic anaemia, because red cells can't run glycolysis either.",
+    bond:"Lost C-terminal contacts → the fold can't be stabilised (protein degraded)",
+    lesson:"Even a nearly full-length protein can fail if the fold isn't stable. One enzyme in two tissues — muscle weakness and anaemia from a single mutation. (A separate missense variant causes the same disease in Wachtelhunds.)"},
+  {id:"pdp1",sp:"🐩",name:"Mitochondrial PDP1 deficiency",species:"Dog (Clumber &amp; Sussex Spaniel)",
+    gene:"PDP1 (pyruvate dehydrogenase phosphatase 1)",wt:"Q",mut:"✕",pos:"252",
+    inherit:"Recessive · nonsense (Gln252Stop, c.754C>T)",
+    consequence:"PDP1 is a mitochondrial matrix enzyme whose job is to switch ON the pyruvate dehydrogenase complex — the gateway that feeds sugar-derived pyruvate into aerobic energy production. A premature stop makes a null (absent) enzyme, so the complex can't be activated.",
+    struct:"No PDP1 → the pyruvate dehydrogenase complex stays 'off' → mitochondria can't fully oxidise pyruvate for ATP.",
+    clinical:"Exercise intolerance and post-exercise collapse from ~1 year old; some dogs develop cardiomyopathy.",
+    bond:"None form (truncation) — and the protein must also reach the mitochondrion and join a multi-enzyme complex",
+    lesson:"Function needs more than a fold: the protein must reach the right compartment (the mitochondrion) and assemble into a larger complex. Break any step and aerobic energy fails."},
+  {id:"prion",sp:"🐑",name:"Prion disease (scrapie)",species:"Sheep / cattle (BSE) / deer (CWD)",
+    gene:"PRNP (prion protein)",wt:"α",mut:"β",pos:"—",
+    inherit:"Infectious conformational change",
+    consequence:"The same sequence, refolded. Normal PrP<sup>C</sup> is α-helix-rich (~42% helix). A misfolded PrP<sup>Sc</sup> molecule acts as a template, converting healthy PrP<sup>C</sup> into a β-sheet-rich form (~43% sheet) — flipping backbone hydrogen-bond patterns.",
+    struct:"β-sheet-rich PrP<sup>Sc</sup> is insoluble, protease-resistant, and aggregates into plaques.",
+    clinical:"Spongiform brain degeneration: ataxia, behaviour change, death. No treatment.",
+    bond:"Backbone hydrogen bonds — re-patterned from helix to sheet",
+    lesson:"Structure, not just sequence, is the disease. Same primary structure, catastrophically different fold — the ultimate proof that shape = function."}
+];
+
+const quiz = [
+  {q:"Which single amino acid forms covalent disulfide bonds?",
+   opts:["Cysteine (C)","Serine (S)","Glycine (G)","Lysine (K)"],a:0,
+   e:"Cysteine's –SH groups oxidise to form S–S bridges. Remove the cysteines and the disulfides disappear."},
+  {q:"Which bond type holds together an α-helix?",
+   opts:["Disulfide bonds","Backbone hydrogen bonds","Ionic salt bridges","Hydrophobic packing"],a:1,
+   e:"Secondary structure is defined by hydrogen bonds between backbone C=O and N–H groups — not the R-side-chains."},
+  {q:"In sickle cell anaemia, glutamate is replaced by valine. Why is that so disruptive?",
+   opts:["It adds a new disulfide bond","A charged surface residue becomes hydrophobic and sticky","It removes a proline turn","It changes the peptide backbone"],a:1,
+   e:"Charged glutamate → greasy valine creates a hydrophobic patch that makes HbS polymerise into fibres."},
+  {q:"You mutate a buried hydrophobic residue into a charged one. Most likely result?",
+   opts:["Stronger fold, more stable","Core destabilised, protein may misfold/unfold","No effect — it's buried","It becomes a new disulfide"],a:1,
+   e:"Forcing a charge into the water-free hydrophobic core is energetically costly and destabilises the fold."},
+  {q:"Ivermectin sensitivity in Collies comes from a 4-bp deletion in the MDR1 (ABCB1) gene. What kind of mutation is this?",
+   opts:["A silent mutation","A frameshift deletion that truncates the protein","A disulfide-adding mutation","A quaternary assembly defect"],a:1,
+   e:"Deleting 4 bases (not a multiple of 3) shifts the reading frame; downstream codons are misread and a premature STOP soon appears, so little/no functional P-glycoprotein is made."},
+  {q:"Prion disease (scrapie) is best described as a change in…",
+   opts:["The amino-acid sequence","The protein's fold — α-helix to β-sheet — with the same sequence","The number of chains only","The peptide backbone bonds breaking"],a:1,
+   e:"PrP keeps its sequence but refolds from helix-rich PrPᶜ to sheet-rich PrPˢᶜ, which aggregates. Shape is the disease."}
+];
+
+/* ---------------- RENDER: LEVELS ---------------- */
+const lb=document.getElementById('levelbtns'), lp=document.getElementById('levelpanel');
+levels.forEach((L,i)=>{
+  const b=document.createElement('button');
+  b.className='levelbtn'+(i===0?' active':'');
+  b.innerHTML=`<span class="lvlnum">${L.n}</span><span><b>${L.name}</b><small>${L.name==='Primary'?'the sequence':L.name==='Secondary'?'helices & sheets':L.name==='Tertiary'?'the 3-D fold':'chains assemble'}</small></span>`;
+  b.onclick=()=>{document.querySelectorAll('.levelbtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');drawLevel(i);};
+  lb.appendChild(b);
+});
+function drawLevel(i){
+  const L=levels[i];
+  lp.innerHTML=`<div class="art" style="color:${L.color}">${L.art}</div>
+    <h3 style="margin-top:10px">${L.n} — ${L.name} structure</h3>
+    <p style="margin:6px 0">${L.what}</p>
+    <div class="kv">
+      <div>Veterinary example</div><div>${L.ex}</div>
+      <div>Held together by</div><div><span class="pill" style="background:${L.bondColor};color:#08122b">${L.bond}</span></div>
+    </div>`;
+}
+drawLevel(0);
+
+/* ---------------- RENDER: BONDS ---------------- */
+const bg=document.getElementById('bondgrid'), bd=document.getElementById('bonddetail');
+bonds.forEach((B,i)=>{
+  const c=document.createElement('div');
+  c.className='bondchip'+(i===0?' active':'');
+  c.style.setProperty('--accent',B.color);
+  c.innerHTML=`<div class="bonddot" style="background:${B.color}"></div><b>${B.name}</b><small>${B.sub}</small>`;
+  c.onclick=()=>{document.querySelectorAll('.bondchip').forEach(x=>x.classList.remove('active'));c.classList.add('active');drawBond(i);};
+  bg.appendChild(c);
+});
+function drawBond(i){
+  const B=bonds[i];
+  bd.style.setProperty('--accent',B.color);
+  const locColor = B.loc.startsWith('Backbone')?'var(--cyan)':'var(--orange)';
+  bd.innerHTML=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="bonddot" style="background:${B.color};width:20px;height:20px"></div>
+      <h3 style="margin:0">${B.name} bond</h3>
+      <span class="badge" style="background:${locColor};color:#08122b">${B.loc}</span>
+    </div>
+    <div class="kv">
+      <div>Between what</div><div>${B.between}</div>
+      <div>Strength</div><div>${B.type}<div class="strengthbar"><div style="width:${B.strength}%;background:${B.color}"></div></div></div>
+      <div>Reversible?</div><div>${B.rev}</div>
+      <div>Where you'll see it</div><div>${B.where}</div>
+    </div>`;
+}
+drawBond(0);
+
+/* ---------------- RENDER: CHAIN ---------------- */
+const cw=document.getElementById('chain'), cd=document.getElementById('chaindetail');
+chain.forEach((S,i)=>{
+  const step=document.createElement('div');
+  step.className='chainstep'+(i===0?' active':'');
+  step.style.borderTopColor=S.color;
+  step.innerHTML=`<div class="tag" style="color:${S.color}">${S.tag}</div><b>${S.label}</b>`;
+  step.onclick=()=>{document.querySelectorAll('.chainstep').forEach(x=>x.classList.remove('active'));step.classList.add('active');drawChain(i);};
+  cw.appendChild(step);
+  if(i<chain.length-1){const a=document.createElement('div');a.className='arrow';a.textContent='→';cw.appendChild(a);}
+});
+function drawChain(i){
+  const S=chain[i];
+  cd.innerHTML=`<h3 style="color:${S.color}">${S.tag} · ${S.label}</h3><p style="margin:6px 0 0">${S.text}</p>`;
+}
+drawChain(0);
+
+/* ---------------- MUTATION SIMULATOR ---------------- */
+const startSeq="MKCDEFAGLKRVICSEDKLLHFV".split(""); // arbitrary teaching peptide w/ 2 Cys
+let seq=[...startSeq], selPos=0;
+const pepEl=document.getElementById('peptide'), palEl=document.getElementById('palette');
+function aaTile(letter,idx,inPeptide){
+  const p=AA[letter]||{cls:"special",name:"?"};
+  const d=document.createElement('div');
+  d.className='aa'+(inPeptide&&idx===selPos?' sel':'');
+  d.style.background=clsColor[p.cls];
+  d.style.color=(p.cls==='special'||p.cls==='positive')?'#08122b':'#0b1020';
+  d.textContent=letter;
+  d.title=p.name+(inPeptide?` · position ${idx+1}`:` · ${clsLabel[p.cls]}`);
+  if(inPeptide){d.onclick=()=>{selPos=idx;renderPeptide();renderReadout();};}
+  else{d.onclick=()=>{seq[selPos]=letter;renderPeptide();renderReadout(letter);};}
+  return d;
+}
+function renderPeptide(){pepEl.innerHTML='';seq.forEach((l,i)=>pepEl.appendChild(aaTile(l,i,true)));}
+function renderPalette(){palEl.innerHTML='';Object.keys(AA).forEach(l=>palEl.appendChild(aaTile(l,null,false)));}
+function stats(s){
+  let charge=0,kd=0,cys=0;
+  s.forEach(l=>{const a=AA[l];if(!a)return;charge+=a.charge;kd+=a.kd;if(l==='C')cys++;});
+  return {charge,gravy:(kd/s.length),cys,ss:Math.floor(cys/2)};
+}
+function renderReadout(justChanged){
+  const now=stats(seq), base=stats(startSeq);
+  const dCharge=now.charge-base.charge, dGravy=(now.gravy-base.gravy);
+  const dfmt=(v,inv)=>{if(Math.abs(v)<1e-9)return '<span class="muted">no change</span>';
+    const up=v>0; const cls=(inv?!up:up)?'delta-up':'delta-down';
+    return `<span class="${cls}">${up?'▲ +':'▼ '}${v.toFixed(2)}</span>`;};
+  document.getElementById('readout').innerHTML=
+    `<div class="row"><span>Length</span><b>${seq.length} aa</b></div>
+     <div class="row"><span>Net charge (pH 7)</span><b>${now.charge>0?'+':''}${now.charge} &nbsp;<small>${dfmt(dCharge,false)}</small></b></div>
+     <div class="row"><span>GRAVY (avg hydropathy)</span><b>${now.gravy.toFixed(2)} &nbsp;<small>${dfmt(dGravy,false)}</small></b></div>
+     <div class="row"><span>Cysteines</span><b>${now.cys}</b></div>
+     <div class="row"><span>Possible S–S bonds</span><b>${now.ss}</b></div>`;
+  // interpretation
+  let interp="", flag="";
+  const changed = seq.join('')!==startSeq.join('');
+  if(!changed){interp="This is the original peptide. Mutate a residue to see the effect.";}
+  else {
+    interp = `Net charge is now <b>${now.charge>0?'+':''}${now.charge}</b> and GRAVY is <b>${now.gravy.toFixed(2)}</b>. `+
+      (now.gravy<base.gravy? "A <b>more negative</b> GRAVY means more water-loving — likely <b>more soluble</b>." :
+       now.gravy>base.gravy? "A <b>more positive</b> GRAVY means more greasy — less soluble, possibly membrane-seeking." :
+       "Hydrophobicity is unchanged.");
+    if(now.ss<base.ss){flag=`<div class="flag">🔗 You removed a cysteine — <b>possible disulfide bonds dropped from ${base.ss} to ${now.ss}</b>. Fewer covalent staples → a floppier, less stable protein (exactly the Part F experiment: change a C to S).</div>`;}
+    else if(now.ss>base.ss){flag=`<div class="flag ok">🔗 You added a cysteine — a <b>new disulfide is now possible</b>, which could rigidify the fold.</div>`;}
+    if(justChanged && AA[justChanged] && AA[justChanged].cls==='hydrophobic' && now.charge!==base.charge){
+      flag+=`<div class="flag">🧪 Swapping a charged residue for a hydrophobic one on a surface can create a sticky patch — the sickle-cell mechanism in miniature.</div>`;
+    }
+  }
+  document.getElementById('siminterp').innerHTML=interp;
+  document.getElementById('simflag').innerHTML=flag;
+}
+document.getElementById('resetSim').onclick=()=>{seq=[...startSeq];selPos=0;renderPeptide();renderReadout();};
+renderPalette();renderPeptide();renderReadout();
+
+/* ---------------- CLINICAL CASES ---------------- */
+const cbtns=document.getElementById('casebtns'), cpanel=document.getElementById('casepanel');
+cases.forEach((C,i)=>{
+  const b=document.createElement('button');
+  b.className='casebtn'+(i===0?' active':'');
+  b.innerHTML=`<span class="sp">${C.sp}</span>${C.name}`;
+  b.onclick=()=>{document.querySelectorAll('.casebtn').forEach(x=>x.classList.remove('active'));b.classList.add('active');drawCase(i);};
+  cbtns.appendChild(b);
+});
+function resBox(letter,fallbackName){
+  if(letter==='α')return `<div class="residue"><div class="code" style="color:var(--cyan)">α</div><div class="nm">helix-rich PrP<sup>C</sup></div></div>`;
+  if(letter==='β')return `<div class="residue"><div class="code" style="color:var(--red)">β</div><div class="nm">sheet-rich PrP<sup>Sc</sup></div></div>`;
+  if(letter==='✕')return `<div class="residue"><div class="code" style="color:var(--red)">STOP</div><div class="nm">chain ends early (truncated)</div></div>`;
+  if(letter==='frame')return `<div class="residue"><div class="code" style="color:var(--yellow);font-size:19px">4-bp del</div><div class="nm">reading frame shifts</div></div>`;
+  if(letter==='—')return `<div class="residue"><div class="code" style="color:var(--muted)">—</div><div class="nm">${fallbackName}</div></div>`;
+  const a=AA[letter]||{name:'?',cls:'special'};
+  return `<div class="residue"><div class="code" style="color:${clsColor[a.cls]}">${letter}</div><div class="nm">${a.name}</div>
+    <div class="props"><span class="pill" style="background:${clsColor[a.cls]};color:#08122b">${clsLabel[a.cls]}</span></div></div>`;
+}
+function drawCase(i){
+  const C=cases[i];
+  const posBox = /\d/.test(C.pos)
+    ? `<div style="text-align:center"><div class="muted" style="font-size:12px">position</div><div style="font-size:22px;font-weight:800">${C.pos}</div></div>` : '';
+  const swap = C.pos==='—'
+    ? `<div class="swap">${resBox(C.wt,'many proteins')}<div class="swaparrow">→</div>${resBox(C.mut,'convergent outcome')}</div>`
+    : `<div class="swap">${resBox(C.wt)}<div class="swaparrow">→</div>${resBox(C.mut)}${posBox}</div>`;
+  cpanel.innerHTML=`
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <h3 style="margin:0">${C.sp} ${C.name}</h3>
+      <span class="badge" style="background:var(--panel2);border:1px solid var(--line);color:var(--muted)">${C.species}</span>
+      <span class="badge" style="background:var(--yellow);color:#08122b">${C.inherit}</span>
+    </div>
+    <div class="muted" style="font-size:13.5px;margin-bottom:6px">Gene: <b style="color:var(--ink)">${C.gene}</b>${C.mutLabel?` · <span class="hl">${C.mutLabel}</span>`:(C.pos!=='—'?` · mutation <span class="hl">${C.wt}${C.pos}${C.mut==='✕'?'*':C.mut}</span>`:'')}</div>
+    ${swap}
+    <div class="casegrid">
+      <div class="infobox"><h4>What the change does</h4><p style="margin:0;font-size:14.5px">${C.consequence}</p></div>
+      <div class="infobox"><h4>Structural consequence</h4><p style="margin:0 0 10px;font-size:14.5px">${C.struct}</p>
+        <h4>Bond / property affected</h4><p style="margin:0;font-size:14.5px">${C.bond}</p></div>
+      <div class="infobox"><h4>In your patient</h4><p style="margin:0;font-size:14.5px">${C.clinical}</p></div>
+      <div class="infobox" style="border-color:var(--cyan)"><h4>The lesson</h4><p style="margin:0;font-size:14.5px">${C.lesson}</p></div>
+    </div>`;
+}
+drawCase(0);
+
+/* ---------------- pLDDT DEMO ---------------- */
+const pl=document.getElementById('plddt'), plr=document.getElementById('plddtread');
+const N=60;
+function plddtColor(v){return v>=90?'#0053d6':v>=70?'#65c7f7':v>=50?'#ffdb13':'#ff7d45';}
+for(let i=0;i<N;i++){
+  // low at tails, high in middle
+  let base;
+  if(i<8) base=30+i*4;
+  else if(i>=N-8) base=30+(N-1-i)*4;
+  else base=88+Math.round(Math.sin(i)*4);
+  const v=Math.max(20,Math.min(97,base));
+  const r=document.createElement('div');
+  r.className='res';r.style.background=plddtColor(v);
+  r.title=`Residue ${i+1}: pLDDT ${v}`;
+  r.onmouseenter=()=>{plr.innerHTML=`Residue <b>${i+1}</b> · pLDDT <b>${v}</b> — ${v>=90?'very high confidence (trust it)':v>=70?'confident':v>=50?'low confidence, treat with caution':'very low — likely a floppy/disordered tail, not necessarily an error'}.`;};
+  pl.appendChild(r);
+}
+
+/* ---------------- QUIZ ---------------- */
+const qw=document.getElementById('quiz'); let answered=0, correct=0;
+quiz.forEach((Q,qi)=>{
+  const box=document.createElement('div');box.className='q card';
+  box.innerHTML=`<p>${qi+1}. ${Q.q}</p>`;
+  Q.opts.forEach((o,oi)=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      if(box.dataset.done)return;box.dataset.done=1;answered++;
+      if(oi===Q.a){btn.classList.add('correct');correct++;}
+      else{btn.classList.add('wrong');box.querySelectorAll('.opt')[Q.a].classList.add('correct');}
+      box.querySelector('.explain').classList.add('show');
+      if(answered===quiz.length){
+        const s=document.getElementById('score');s.style.display='block';
+        s.innerHTML=`<h3 style="margin:0">You scored ${correct} / ${quiz.length}</h3><p class="muted" style="margin:6px 0 0">${correct===quiz.length?'Perfect — you\'ve got the sequence→structure→function logic down.':'Review the highlighted answers and the bonds section, then retry.'}</p>`;
+        s.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    };
+    box.appendChild(btn);
+  });
+  const e=document.createElement('p');e.className='explain';e.textContent=Q.e;box.appendChild(e);
+  qw.appendChild(box);
+});
+
+/* ---------------- PRINT: expand all cases so paper handout is complete ---------------- */
+window.addEventListener('beforeprint',()=>{
+  let host=document.getElementById('printAllCases');
+  if(!host){host=document.createElement('div');host.id='printAllCases';document.getElementById('casepanel').after(host);}
+  host.innerHTML='<h3 style="margin-top:14px">All 7 cases (print view)</h3>'+cases.map(C=>{
+    const codeStr = C.mutLabel ? C.mutLabel
+      : (C.pos==='—' ? 'conformational (PrPᶜ→PrPˢᶜ)'
+      : `${C.wt}${C.pos}${C.mut==='✕'?'*':C.mut}`);
+    return `<div class="card" style="margin:10px 0"><b>${C.sp} ${C.name}</b> · <span class="muted">${C.species}</span><br>
+      <span class="muted">Gene ${C.gene} · mutation <span class="hl">${codeStr}</span> · ${C.inherit}</span>
+      <div style="margin-top:6px;font-size:14px"><b>Change:</b> ${C.consequence}</div>
+      <div style="font-size:14px"><b>Structure:</b> ${C.struct} <b>Bond/property:</b> ${C.bond}</div>
+      <div style="font-size:14px"><b>In the patient:</b> ${C.clinical}</div>
+      <div style="font-size:14px"><b>Lesson:</b> ${C.lesson}</div></div>`;
+  }).join('');
+  document.getElementById('casepanel').style.display='none';
+});
+window.addEventListener('afterprint',()=>{
+  const host=document.getElementById('printAllCases');if(host)host.innerHTML='';
+  document.getElementById('casepanel').style.display='';
+});
+</script>
+</body>
+</html>
